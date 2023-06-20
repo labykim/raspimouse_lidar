@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>lidar_follower</name>
+  <name>raspimouse_lidar_following</name>
   <version>0.0.0</version>
   <description>The lidar_follower package</description>
 
