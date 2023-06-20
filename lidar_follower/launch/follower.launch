@@ -1,3 +1,0 @@
-<launch>
-	<node name="listener_node" pkg="lidar_follower" type="follower.py" output="screen"></node>
-</launch>
