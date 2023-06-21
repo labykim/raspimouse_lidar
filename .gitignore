@@ -1,6 +1,8 @@
 # Created by https://www.toptal.com/developers/gitignore/api/ros,python,macos,windows,linux
 # Edit at https://www.toptal.com/developers/gitignore?templates=ros,python,macos,windows,linux
 
+.vscode
+
 ### Linux ###
 *~
 
