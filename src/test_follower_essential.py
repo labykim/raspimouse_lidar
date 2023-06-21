@@ -26,16 +26,29 @@ SPEED = 0.1             # Basic movement speed
 class FollowerEssential():
     def __init__(self):
         self.vel_pub = []
+        self.scan_data = [[] for i in range[FOLLOWER_NODE]]         # TODO: Is it correct?
         for i in range(FOLLOWER_NODE):
             rospy.Subscriber('/raspi_' + str(i) + '/scan', LaserScan, self.scan_callback, i)
             self.vel_pub.append(rospy.Publisher('/raspi_'+ str(i) +'/cmd_vel', Twist, queue_size=1))
-            rospy.loginfo('Subscriber and publisher for /raspi_' + str(i) + ' declared.')
+            rospy.loginfo('Subscriber and publisher for /raspi_' + str(i) + ' established.')
 
     def scan_callback(self, data, index):
         rospy.loginfo('scan_callback function from /raspi_' + str(index) + '/scan')
-        self.scan_data = data
+        self.scan_data[index] = data
+        self.update(index, data)
 
-    def update(self):
+    def leader_detection(self):
+        # Catch the detection only in specific range of angle and distance
+        angles_in_range = []                   # Contains the angle detected something within DISTANCE +- MARGIN
+
+        for i in range(CENTER_POS - DETECTION_ANGLE, CENTER_POS + DETECTION_ANGLE + 1):
+            if self.scan_data.ranges[i] > DISTANCE - MARGIN and self.scan_data.ranges[i] < DISTANCE + MARGIN:
+                angles_in_range.append(i)      # Save the angle
+            elif self.scan_data.ranges[i] < DISTANCE - MARGIN and self.scan_data.ranges[i] != 0:
+                self.vel_msg.linear.x = 0
+        
+
+    def update(self, index, data):
         rospy.loginfo('Update function called.')
 
 
@@ -49,5 +62,5 @@ if __name__ == '__main__':
 
     r = rospy.Rate(5)
     while not rospy.is_shutdown():
-        follower_essential.update()
+        # follower_essential.update()
         r.sleep()
