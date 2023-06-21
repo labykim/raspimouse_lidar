@@ -27,6 +27,7 @@ class FollowerEssential():
     def __init__(self):
         self.vel_pub = []
         self.scan_data = [[] for i in range[FOLLOWER_NODE]]         # TODO: Is it correct?
+        self.vel_msg = [Twist() for i in range[FOLLOWER_NODE]]      # TODO: Is it correct?
         for i in range(FOLLOWER_NODE):
             rospy.Subscriber('/raspi_' + str(i) + '/scan', LaserScan, self.scan_callback, i)
             self.vel_pub.append(rospy.Publisher('/raspi_'+ str(i) +'/cmd_vel', Twist, queue_size=1))
@@ -37,7 +38,7 @@ class FollowerEssential():
         self.scan_data[index] = data
         self.update(index, data)
 
-    def leader_detection(self):
+    def leader_detection(self, index):
         # Catch the detection only in specific range of angle and distance
         angles_in_range = []                   # Contains the angle detected something within DISTANCE +- MARGIN
 
@@ -47,9 +48,14 @@ class FollowerEssential():
             elif self.scan_data.ranges[i] < DISTANCE - MARGIN and self.scan_data.ranges[i] != 0:
                 self.vel_msg.linear.x = 0
         
+    def collision_prevention(self, index):
+        # Use all directions
+        # Never go to the angle which has detected the close contact
+        pass
 
-    def update(self, index, data):
-        rospy.loginfo('Update function called.')
+    def update(self, index):
+        rospy.loginfo('Update function called by raspi_' + str(index) + '.')
+        vel_msg = self.leader_detection(index)
 
 
 
