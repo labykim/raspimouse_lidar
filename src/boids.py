@@ -5,6 +5,7 @@ from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 
 BOID_NUM = 2
+SEPARATION_RANGE = 0.3
 
 class Boid:
     def __init__(self, index):
@@ -13,16 +14,17 @@ class Boid:
         self.vel_pub = rospy.Publisher('/raspi_' + str(index) + '/cmd_vel', Twist, queue_size=1)
         self.vel_msg = Twist()
 
-        # Store the angle and range information of other boids
+        # Store the [0]angle and [1]range information of other boids
         # boid_pos[0] is always the leader
         self.boid_pos = [[] for _ in range(BOID_NUM)]
 
-        rospy.loginfo("Subscriber & publisher for /raspi_" + str(index) + "established.")
+        rospy.loginfo("Subscriber & publisher for /raspi_" + str(index) + " established.")
 
-    # scan_callback function for the first time
+    # scan_callback function only for the first time
     # Include initialization
     def scan_callback_init(self, data):
         self.data_new = data.ranges
+        rospy.loginfo(self.data_new[175:185])
 
     def scan_callback(self, data):
         self.data_old = self.data_new
@@ -35,24 +37,45 @@ class Boid:
 
     # Head to the same direction with the boids around
     def alignment(self):
-        vector = Twist()
-        pass
+        vector = []
+        return vector
 
     # Gather with the boids around
     def cohesion(self):
-        pass
+        vector = []
+        return vector
 
     # Keep distance with the boids around
     def separation(self):
-        pass
+        vector = []
+        for i in range(len(self.boid_pos)):
+            if self.boid_pos[i][1] < SEPARATION_RANGE:
+                pass
+
+        # Required data: direction vector from self to other boid
+
+        return vector
 
     def update(self):
+        vector = [0, 0]                         # Final cartesian vector (x, y)
+
+        vector += self.alignment()
+        vector += self.cohesion()
+        vector += self.separation()
+
+        # TODO: Convert the vector into Twist
+        # Variable 'vector' contains the final Cartesian vector
+        # Convert it into a polar vector and again into a Twist
+        # Magnitude may directly be Twist.linear.x (in our case, self.vel_msg.linear.x)
+        # Angle may directly be Twist.angular.z (in our case, self.vel_msg.angular.z)
         
         self.vel_pub.publish(self.vel_msg)
+        self.vel_msg_old = self.vel_msg
 
     def condition_check(self, index):
-        if self.boid_pos[0] == None:
+        if self.boid_pos[0] == []:
             rospy.loginfo("Leader is not detected. Place the leader boid in front of raspi_" + str(index))
+            return False
 
 
 
