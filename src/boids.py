@@ -1,10 +1,12 @@
 #! /usr/bin/env python
 
 import rospy
+import math
 from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 
 BOID_NUM = 2
+NEIGHBOUR_RADIUS = 0.6
 SEPARATION_RANGE = 0.3
 
 class Boid:
@@ -15,7 +17,7 @@ class Boid:
         self.vel_msg = Twist()
 
         # Store the [0]angle and [1]range information of other boids
-        # boid_pos[0] is always the leader
+        # boid_pos[0] contains the leader info
         self.boid_pos = [[] for _ in range(BOID_NUM)]
 
         rospy.loginfo("Subscriber & publisher for /raspi_" + str(index) + " established.")
@@ -47,14 +49,16 @@ class Boid:
 
     # Keep distance with the boids around
     def separation(self):
-        vector = []
+        vec_final = [0, 0]
+
         for i in range(len(self.boid_pos)):
             if self.boid_pos[i][1] < SEPARATION_RANGE:
-                pass
+                # No need to inverse the angle since the lidar is attached reversely
+                x_cart = (SEPARATION_RANGE - self.boid_pos[i][1]) * math.cos(self.boid_pos[i][0])
+                y_cart = (SEPARATION_RANGE - self.boid_pos[i][1]) * math.sin(self.boid_pos[i][0])
+                vec_final += [x_cart, y_cart]           # TODO: May require a multiplier
 
-        # Required data: direction vector from self to other boid
-
-        return vector
+        return vec_final
 
     def update(self):
         vector = [0, 0]                         # Final cartesian vector (x, y)
