@@ -1,15 +1,18 @@
 #! /usr/bin/env python
 
 import rospy
+import custom_np
 from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 
-BOID_NUM = 2
+BOID_NUM = 2                # Does not include a leader
 SEPARATION_RANGE = 0.3
+
+VELOCITY_MULTIPLIER = 1.3
 
 class Boid:
     def __init__(self, index):
-        self.var_scan_callback = self.scan_callback_init
+        self.var_scan_callback = self.init_scan_callback
         rospy.Subscriber('/raspi_' + str(index) + '/scan', LaserScan, self.var_scan_callback)
         self.vel_pub = rospy.Publisher('/raspi_' + str(index) + '/cmd_vel', Twist, queue_size=1)
         self.vel_msg = Twist()
@@ -20,19 +23,14 @@ class Boid:
 
         rospy.loginfo("Subscriber & publisher for /raspi_" + str(index) + " established.")
 
-    # scan_callback function only for the first time
-    # Include initialization
-    def scan_callback_init(self, data):
+    def init_scan_callback(self, data):
+        rospy.loginfo('Calling: init_scan_callback')
         self.data = data.ranges
         rospy.loginfo(self.data[175:185])
-
-        self.init_boid_detection()
 
     def scan_callback(self, data):
         self.data_old = self.data
         self.data = data.ranges
-
-        self.object_detection()
 
     def init_boid_detection(self):
         leader_pos = [180, 0.5]
@@ -86,14 +84,13 @@ class Boid:
         vector += self.cohesion()
         vector += self.separation()
 
-        # TODO: Convert the vector into Twist
-        # Variable 'vector' contains the final Cartesian vector
-        # Convert it into a polar vector and again into a Twist
-        # Magnitude may directly be Twist.linear.x (in our case, self.vel_msg.linear.x)
-        # Angle may directly be Twist.angular.z (in our case, self.vel_msg.angular.z)
+        vector = custom_np.cart_to_pol(vector)
+
+        self.vel_msg.linear.x = vector[0] * VELOCITY_MULTIPLIER
+        self.vel_msg.angular.z = vector[1]
         
         self.vel_pub.publish(self.vel_msg)
-        self.vel_msg_old = self.vel_msg
+        self.vel_msg_prev = self.vel_msg
 
     def condition_check(self):
         if self.boid_pos[0] == []:
@@ -101,7 +98,7 @@ class Boid:
 
 
 
-if __name__ == '__main__':
+def main():
     rospy.init_node('boids_master')
     rospy.loginfo('Boids master node initialized.')
 
@@ -109,7 +106,7 @@ if __name__ == '__main__':
     # LEADER IS NOT IN THIS ARRAY
     boids = [Boid(i) for i in range(BOID_NUM)]
 
-    # Loop for condition check before starting Boids
+    # Condition checking loop before starting Boids
     r = rospy.Rate(1)
     while not rospy.is_shutdown():
         isReady = 1
@@ -125,9 +122,32 @@ if __name__ == '__main__':
     rospy.loginfo("Initial condition satisfied. Starting Boids...")
 
     # Loop for live update
-    # Nothing yet since the main algorithm is run by scan_callback
-    # TODO: Maybe some superviser thing?
     r = rospy.Rate(5)
     while not rospy.is_shutdown():
-        # something
+        for i in range(BOID_NUM):
+            boids[i].update()
         r.sleep()
+
+def test():
+    rospy.loginfo('This is a test operation.')
+    rospy.init_node('boids_master')
+    rospy.loginfo('Boids master node initialized.')
+
+    boids = [Boid(i) for i in range(BOID_NUM)]
+
+    r = rospy.Rate(1)
+    while not rospy.is_shutdown():
+        isReady = 1
+        for i in range(BOID_NUM):
+            if boids[i].condition_check(i) == False:
+                
+                isReady = 0
+                break
+        if isReady:
+            break
+        r.sleep()
+
+    rospy.loginfo("Initial condition satisfied. Starting Boids...")
+
+if __name__ == '__main__':
+    test()
