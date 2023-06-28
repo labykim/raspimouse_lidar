@@ -1,17 +1,19 @@
 #! /usr/bin/env python
 
 import rospy
-import math
 from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
+import math
+import custom_np
 
-BOID_NUM = 2
-NEIGHBOUR_RADIUS = 0.6
+BOID_NUM = 2                # Does not include a leader
 SEPARATION_RANGE = 0.3
+NEIGHBOUR_RADIUS = 0.6
+VELOCITY_MULTIPLIER = 1.3
 
 class Boid:
     def __init__(self, index):
-        self.var_scan_callback = self.scan_callback_init
+        self.var_scan_callback = self.init_scan_callback
         rospy.Subscriber('/raspi_' + str(index) + '/scan', LaserScan, self.var_scan_callback)
         self.vel_pub = rospy.Publisher('/raspi_' + str(index) + '/cmd_vel', Twist, queue_size=1)
         self.vel_msg = Twist()
@@ -22,18 +24,36 @@ class Boid:
 
         rospy.loginfo("Subscriber & publisher for /raspi_" + str(index) + " established.")
 
-    # scan_callback function only for the first time
-    # Include initialization
-    def scan_callback_init(self, data):
-        self.data_new = data.ranges
-        rospy.loginfo(self.data_new[175:185])
+    def init_scan_callback(self, data):
+        rospy.loginfo('Calling: init_scan_callback')
+        self.data = data.ranges
+        rospy.loginfo(self.data[175:185])
 
     def scan_callback(self, data):
-        self.data_old = self.data_new
-        self.data_new = data.ranges
+        self.data_old = self.data
+        self.data = data.ranges
 
-        self.object_detection()
+    def init_boid_detection(self):
+        leader_pos = [180, 0.5]
+        margin = [20, 0.05]
+        hit = []
+        
+        for i in range(leader_pos[0] - margin[0], leader_pos[0] + margin[0]):
+            if self.data[i] > leader_pos[1] - margin[1] and self.data[i] < leader_pos[1] + margin[1]:
+                hit.append(i)
 
+        mean_angle = sum(hit) / len(hit)
+        range_sum = 0
+        for i in range(hit):
+            range_sum += self.data[hit[i]]
+        mean_range = sum(range_sum) / len(range_sum)
+        self.boid_pos[0] = [mean_angle,mean_range]
+
+        for b in range(BOID_NUM - 1):
+            pass
+
+
+    # Detect a leader and other boids
     def object_detection(self):
         pass
 
@@ -67,23 +87,21 @@ class Boid:
         vector += self.cohesion()
         vector += self.separation()
 
-        # TODO: Convert the vector into Twist
-        # Variable 'vector' contains the final Cartesian vector
-        # Convert it into a polar vector and again into a Twist
-        # Magnitude may directly be Twist.linear.x (in our case, self.vel_msg.linear.x)
-        # Angle may directly be Twist.angular.z (in our case, self.vel_msg.angular.z)
+        vector = custom_np.cart_to_pol(vector)
+
+        self.vel_msg.linear.x = vector[0] * VELOCITY_MULTIPLIER
+        self.vel_msg.angular.z = vector[1]
         
         self.vel_pub.publish(self.vel_msg)
-        self.vel_msg_old = self.vel_msg
+        self.vel_msg_prev = self.vel_msg
 
-    def condition_check(self, index):
+    def condition_check(self):
         if self.boid_pos[0] == []:
-            rospy.loginfo("Leader is not detected. Place the leader boid in front of raspi_" + str(index))
             return False
 
 
 
-if __name__ == '__main__':
+def main():
     rospy.init_node('boids_master')
     rospy.loginfo('Boids master node initialized.')
 
@@ -91,12 +109,13 @@ if __name__ == '__main__':
     # LEADER IS NOT IN THIS ARRAY
     boids = [Boid(i) for i in range(BOID_NUM)]
 
-    # Loop for condition check before starting Boids
+    # Condition checking loop before starting Boids
     r = rospy.Rate(1)
     while not rospy.is_shutdown():
         isReady = 1
         for i in range(BOID_NUM):
             if boids[i].condition_check(i) == False:
+                rospy.loginfo("Leader is not detected. Place the leader boid in front of raspi_" + str(i))
                 isReady = 0
                 break
         if isReady:
@@ -106,9 +125,32 @@ if __name__ == '__main__':
     rospy.loginfo("Initial condition satisfied. Starting Boids...")
 
     # Loop for live update
-    # Nothing yet since the main algorithm is run by scan_callback
-    # TODO: Maybe some superviser thing?
     r = rospy.Rate(5)
     while not rospy.is_shutdown():
-        # something
+        for i in range(BOID_NUM):
+            boids[i].update()
         r.sleep()
+
+def test():
+    rospy.loginfo('This is a test operation.')
+    rospy.init_node('boids_master')
+    rospy.loginfo('Boids master node initialized.')
+
+    boids = [Boid(i) for i in range(BOID_NUM)]
+
+    r = rospy.Rate(1)
+    while not rospy.is_shutdown():
+        isReady = 1
+        for i in range(BOID_NUM):
+            if boids[i].condition_check(i) == False:
+                
+                isReady = 0
+                break
+        if isReady:
+            break
+        r.sleep()
+
+    rospy.loginfo("Initial condition satisfied. Starting Boids...")
+
+if __name__ == '__main__':
+    test()
