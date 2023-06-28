@@ -23,15 +23,38 @@ class Boid:
     # scan_callback function only for the first time
     # Include initialization
     def scan_callback_init(self, data):
-        self.data_new = data.ranges
-        rospy.loginfo(self.data_new[175:185])
+        self.data = data.ranges
+        rospy.loginfo(self.data[175:185])
+
+        self.init_boid_detection()
 
     def scan_callback(self, data):
-        self.data_old = self.data_new
-        self.data_new = data.ranges
+        self.data_old = self.data
+        self.data = data.ranges
 
         self.object_detection()
 
+    def init_boid_detection(self):
+        leader_pos = [180, 0.5]
+        margin = [20, 0.05]
+        hit = []
+        
+        for i in range(leader_pos[0] - margin[0], leader_pos[0] + margin[0]):
+            if self.data[i] > leader_pos[1] - margin[1] and self.data[i] < leader_pos[1] + margin[1]:
+                hit.append(i)
+
+        mean_angle = sum(hit) / len(hit)
+        range_sum = 0
+        for i in range(hit):
+            range_sum += self.data[hit[i]]
+        mean_range = sum(range_sum) / len(range_sum)
+        self.boid_pos[0] = [mean_angle,mean_range]
+
+        for b in range(BOID_NUM - 1):
+            pass
+
+
+    # Detect a leader and other boids
     def object_detection(self):
         pass
 
@@ -72,9 +95,8 @@ class Boid:
         self.vel_pub.publish(self.vel_msg)
         self.vel_msg_old = self.vel_msg
 
-    def condition_check(self, index):
+    def condition_check(self):
         if self.boid_pos[0] == []:
-            rospy.loginfo("Leader is not detected. Place the leader boid in front of raspi_" + str(index))
             return False
 
 
@@ -93,6 +115,7 @@ if __name__ == '__main__':
         isReady = 1
         for i in range(BOID_NUM):
             if boids[i].condition_check(i) == False:
+                rospy.loginfo("Leader is not detected. Place the leader boid in front of raspi_" + str(i))
                 isReady = 0
                 break
         if isReady:
