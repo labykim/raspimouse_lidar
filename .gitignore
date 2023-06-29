@@ -2,6 +2,7 @@
 # Edit at https://www.toptal.com/developers/gitignore?templates=ros,python,macos,windows,linux
 
 .vscode
+/legacy
 
 ### Linux ###
 *~
