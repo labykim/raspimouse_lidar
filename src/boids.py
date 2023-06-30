@@ -6,10 +6,16 @@ from geometry_msgs.msg import Twist
 import math
 import custom_np
 
-BOID_NUM = 2                # Does not include a leader
+BOID_NUM = 3
+
 SEPARATION_RANGE = 0.3
 NEIGHBOUR_RADIUS = 0.6
-VELOCITY_MULTIPLIER = 1.3
+
+ALIGNMENT_WEIGHT = 1.0
+COHESION_WEIGHT = 1.0
+SEPARATION_WEIGHT = 1.0
+
+VELOCITY_MULTIPLIER = 1.0
 
 class Boid:
     def __init__(self, index):
@@ -18,21 +24,22 @@ class Boid:
         self.vel_pub = rospy.Publisher('/raspi_' + str(index) + '/cmd_vel', Twist, queue_size=1)
         self.vel_msg = Twist()
 
-        # Store the [0]angle and [1]range information of other boids
-        # boid_pos[0] contains the leader info
-        self.boid_pos = [[] for _ in range(BOID_NUM)]
+        self.boid_pos = [[] for _ in range(BOID_NUM - 1)]       # [range, angle, polar_vector]
+        self.boid_pos_old = self.boid_pos
 
-        rospy.loginfo("Subscriber & publisher for /raspi_" + str(index) + " established.")
+        rospy.loginfo("Instantiated: /raspi_" + str(index))
 
     def init_scan_callback(self, data):
         rospy.loginfo('Calling: init_scan_callback')
         self.data = data.ranges
-        rospy.loginfo(self.data[175:185])
 
     def scan_callback(self, data):
+        if self.isUpdating:
+            return
         self.data_old = self.data
         self.data = data.ranges
 
+    # Discarded
     def init_boid_detection(self):
         leader_pos = [180, 0.5]
         margin = [20, 0.05]
@@ -52,48 +59,60 @@ class Boid:
         for b in range(BOID_NUM - 1):
             pass
 
+    # Calculate the velocity of other voids
+    def boid_tracking(self):
+        
+        for i in range(len(self.boid_pos)):
+            p1 = custom_np.pol_to_cart(self.boid_pos_old[i][0], self.boid_pos_old[i][1])
+            p2 = custom_np.pol_to_cart(self.boid_pos[i][0], self.boid_pos[i][1])
+        self.boid_pos[i][2] = p2 - p1
 
-    # Detect a leader and other boids
-    def object_detection(self):
-        pass
 
     # Head to the same direction with the boids around
     def alignment(self):
-        vector = []
+        vector = [0, 0]
+        rospy.logdebug('Alignment vector: ' + str(vector))
         return vector
 
     # Gather with the boids around
     def cohesion(self):
-        vector = []
+        vector = [0, 0]
+        rospy.logdebug('Cohesion vector: ' + str(vector))
         return vector
 
     # Keep distance with the boids around
     def separation(self):
-        vec_final = [0, 0]
-
+        vector = [0, 0]
         for i in range(len(self.boid_pos)):
-            if self.boid_pos[i][1] < SEPARATION_RANGE:
-                # No need to inverse the angle since the lidar is attached reversely
-                x_cart = (SEPARATION_RANGE - self.boid_pos[i][1]) * math.cos(self.boid_pos[i][0])
-                y_cart = (SEPARATION_RANGE - self.boid_pos[i][1]) * math.sin(self.boid_pos[i][0])
-                vec_final += [x_cart, y_cart]           # TODO: May require a multiplier
-
-        return vec_final
+            if self.boid_pos[i][0] < SEPARATION_RANGE:
+                # NO NEED to inverse the angle since the lidar is attached reversely
+                vector += custom_np.pol_to_cart(self.boid_pos[i][0], self.boid_pos[i][1]) * SEPARATION_WEIGHT
+        
+        rospy.logdebug('Separation vector: ' + str(vector))
+        return vector
 
     def update(self):
+        self.isUpdating = True
+
+        self.boid_tracking()
+
         vector = [0, 0]                         # Final cartesian vector (x, y)
 
         vector += self.alignment()
         vector += self.cohesion()
         vector += self.separation()
 
+        # (x, y) to (rho, phi)
         vector = custom_np.cart_to_pol(vector)
+        rospy.logdebug('Final polar vector: ' + str(vector))
 
         self.vel_msg.linear.x = vector[0] * VELOCITY_MULTIPLIER
         self.vel_msg.angular.z = vector[1]
         
         self.vel_pub.publish(self.vel_msg)
         self.vel_msg_prev = self.vel_msg
+
+        self.isUpdating = False
 
     def condition_check(self):
         if self.boid_pos[0] == []:
@@ -105,26 +124,8 @@ def main():
     rospy.init_node('boids_master')
     rospy.loginfo('Boids master node initialized.')
 
-    # Instantiate [BOID_NUM] Boid classes. Each class will be in charge of one raspimouse.
-    # LEADER IS NOT IN THIS ARRAY
     boids = [Boid(i) for i in range(BOID_NUM)]
 
-    # Condition checking loop before starting Boids
-    r = rospy.Rate(1)
-    while not rospy.is_shutdown():
-        isReady = 1
-        for i in range(BOID_NUM):
-            if boids[i].condition_check(i) == False:
-                rospy.loginfo("Leader is not detected. Place the leader boid in front of raspi_" + str(i))
-                isReady = 0
-                break
-        if isReady:
-            break
-        r.sleep()
-
-    rospy.loginfo("Initial condition satisfied. Starting Boids...")
-
-    # Loop for live update
     r = rospy.Rate(5)
     while not rospy.is_shutdown():
         for i in range(BOID_NUM):
@@ -132,7 +133,8 @@ def main():
         r.sleep()
 
 def test():
-    rospy.loginfo('This is a test operation.')
+    rospy.loginfo('Starting code test...')
+    
     rospy.init_node('boids_master')
     rospy.loginfo('Boids master node initialized.')
 
@@ -153,4 +155,4 @@ def test():
     rospy.loginfo("Initial condition satisfied. Starting Boids...")
 
 if __name__ == '__main__':
-    test()
+    main()
