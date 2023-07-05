@@ -4,9 +4,10 @@ import rospy
 from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 import math
+import os
 import custom_np
 
-BOID_NUM = 3
+BOID_NUM = 2
 
 SEPARATION_RANGE = 0.3
 NEIGHBOUR_RADIUS = 0.6
@@ -27,7 +28,12 @@ class Boid:
         self.vel_pub = rospy.Publisher('/raspi_' + str(index) + '/cmd_vel', Twist, queue_size=1)
         self.vel_msg = Twist()
 
-        self.boid_pos, self.boid_pos_prev, self.boid_vel, self.boid_vel_prev = [[] for _ in range(BOID_NUM - 1)]    # [rho, phi]
+        self.boid_pos = [[] for _ in range(BOID_NUM - 1)]           # [rho, phi]
+        self.boid_pos_prev = [[] for _ in range(BOID_NUM - 1)]
+        self.boid_vel = [[] for _ in range(BOID_NUM - 1)]
+        self.boid_vel_prev = [[] for _ in range(BOID_NUM - 1)]
+
+        self.isUpdating = True
 
         rospy.loginfo("Instantiated: /raspi_" + str(index))
 
@@ -97,7 +103,7 @@ class Boid:
         vector = [0, 0]
 
 
-        rospy.loginfo('Alignment vector: ' + str(vector))
+        # rospy.loginfo('Alignment vector: ' + str(vector))
         return vector
 
     def cohesion(self):
@@ -109,7 +115,7 @@ class Boid:
         """
         vector = [0, 0]
 
-        rospy.loginfo('Cohesion vector: ' + str(vector))
+        # rospy.loginfo('Cohesion vector: ' + str(vector))
         return vector
 
     def separation(self):
@@ -123,7 +129,8 @@ class Boid:
         for i in range(len(self.boid_pos)):
             if self.boid_pos[i][0] < SEPARATION_RANGE:
                 # NO NEED to inverse the angle since the lidar is attached reversely
-                vector += custom_np.pol_to_cart((self.boid_pos[i][0] - SEPARATION_RANGE) * SEPARATION_WEIGHT, self.boid_pos[i][1])
+                # rospy.loginfo('input rho : ' + str(self.boid_pos[i][0] - SEPARATION_RANGE) * SEPARATION_WEIGHT)
+                vector = custom_np.pol_to_cart((self.boid_pos[i][0] - SEPARATION_RANGE) * SEPARATION_WEIGHT, self.boid_pos[i][1] - 180)
         
         rospy.loginfo('Separation vector: ' + str(vector))
         return vector
@@ -135,14 +142,18 @@ class Boid:
         Return
             (float) Polar vector (rho, phi)
         """
-        vector = [0, 0]
-        vector += self.alignment()
-        vector += self.cohesion()
-        vector += self.separation()
+        self.vel_cart = [0, 0]
+        output = self.alignment()
+        self.vel_cart[0] += output[0]
+        self.vel_cart[1] += output[1]
+        output = self.cohesion()
+        self.vel_cart[0] += output[0]
+        self.vel_cart[1] += output[1]
+        output = self.separation()
+        self.vel_cart[0] += output[0]
+        self.vel_cart[1] += output[1]
 
-        self.vel_cart = vector
-
-        vector = custom_np.cart_to_pol(vector)
+        vector = custom_np.cart_to_pol(self.vel_cart[0], self.vel_cart[1])
         rospy.loginfo('Final polar vector: ' + str(vector))
         return vector
 
@@ -160,7 +171,7 @@ class Boid:
         self.vel_msg.linear.x = vector[0] * VELOCITY_MULTIPLIER
         self.vel_msg.angular.z = vector[1]
         
-        self.vel_pub.publish(self.vel_msg)          # Publish
+        # self.vel_pub.publish(self.vel_msg)          # Publish
 
         # Update some attributes
         self.vel_msg_prev = self.vel_msg
@@ -168,9 +179,9 @@ class Boid:
         self.isUpdating = False
         
     def test_condition_init(self):
-        self.boid_pos[0] = [0.4, 180]           # Forward
-        self.boid_pos[1] = [0.4, 270]           # Left
+        self.boid_pos[0] = [0.4, 0]           # Forward
         self.boid_pos_prev = self.boid_pos
+        self.isUpdating = False
 
 
 
