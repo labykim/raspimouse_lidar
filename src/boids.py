@@ -176,6 +176,25 @@ class Boid:
         rospy.loginfo('Final polar vector: ' + str(self.vel_pol) + '\n')
 
         return self.vel_pol
+    
+    def publish(self, vector: list):
+        """
+        Write and publish a Twist topic with some post-processing:
+        - Negative length considering moving backward
+        - `VELOCITY_MULTIPLIER`
+
+        ### Parameters
+        vector Polar vector (rho, phi_d) that represents final velocity for next interval
+        """
+        if vector[1] > 90 and vector[1] < 270:
+            vector[0] = -vector[0]
+            vector[1] += 180
+
+        msg = Twist()
+        msg.linear.x = vector[0] * VELOCITY_MULTIPLIER
+        msg.angular.z = vector[1]
+
+        self.vel_pub.publish(msg)
 
     def update(self):
         """
@@ -193,16 +212,7 @@ class Boid:
 
         vector = self.vector_calculation()
 
-        # Convert the final polar vector to Twist
-        self.vel_msg.linear.x = vector[0] * VELOCITY_MULTIPLIER
-
-        if vector[1] > 90 and vector[1] < 270:
-            vector[0] = -vector[0]
-            vector[1] += 180
-        self.vel_msg.angular.z = vector[1]
-        self.vel_msg.linear.x = vector[0] * VELOCITY_MULTIPLIER
-        
-        # self.vel_pub.publish(self.vel_msg)          # Publish
+        self.publish(vector)
 
         # Update some attributes
         self.vel_msg_prev = self.vel_msg
