@@ -1,6 +1,6 @@
 import numpy as np
 
-def cart_to_pol(vector):
+def cart_to_pol(vector: list) -> list:
     """
     Convert a cartesian vector to a polar vector.
 
@@ -17,7 +17,7 @@ def cart_to_pol(vector):
     phi = np.round(np.arctan2(y, x), 6)
     return [rho, np.degrees(phi)]
 
-def pol_to_cart(vector):
+def pol_to_cart(vector: list) -> list:
     """
     Convert a polar vector to a cartesian vector.
 
@@ -35,7 +35,7 @@ def pol_to_cart(vector):
 
     return [x, y]
 
-def polar_velocity(p1, p2, po):
+def polar_velocity(p1: list, p2: list, po: list) -> list:
     """
     Calculate the velocity of an object from p1 to p2 in the polar coordinate system, considering the observer (i.e., origin) moves. In other words, calculate `p2 + po - p1`.\n
     An object at p1 is observed on t1 and p2 on p2, while the observer may be moved. t2 is the current updating time and t1 is the last updating time; mostly t2 = t1 + 0.2 as the RPM of the light sensor (LDS-01) is 300.
