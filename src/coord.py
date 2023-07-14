@@ -21,7 +21,7 @@ def pol_to_cart(vector: list) -> list:
     """
     Convert a polar vector to a cartesian vector.
 
-    ### Params
+    ### Parameters
         Polar vector `vector = [rho, phi]`, where `phi` is an angle in degrees.
 
     ### Returns
@@ -62,8 +62,8 @@ def polar_velocity(p1: list, p2: list, po: list) -> list:
     return vector
 
 if __name__ == '__main__':
-    p1 = [4, 150]
-    p2 = [4, 30]
+    p1 = [0.4, 150]
+    p2 = [0.4, 30]
     o = [0, 0]
 
     a = polar_velocity(p1, p2, o)
