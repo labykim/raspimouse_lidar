@@ -40,7 +40,7 @@ def polar_velocity(p1: list, p2: list, po: list) -> list:
     Calculate the velocity of an object from p1 to p2 in the polar coordinate system, considering the observer (i.e., origin) moves. In other words, calculate `p2 + po - p1`.\n
     An object at p1 is observed on t1 and p2 on p2, while the observer may be moved. t2 is the current updating time and t1 is the last updating time; mostly t2 = t1 + 0.2 as the RPM of the light sensor (LDS-01) is 300.
 
-    ### Params
+    ### Parameters
         `p1`, `p2` : Polar vector.
         `po` : Velocity of the origin (i.e., observer) when t1. 
         

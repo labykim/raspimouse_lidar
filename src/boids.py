@@ -36,7 +36,10 @@ class Boid:
         self.vel_cart = [0, 0]
         self.vel_pol = [0, 0]
 
+        self.test_condition_init()
+
         rospy.loginfo("Instantiated: /raspi_" + str(index))
+        self.isUpdating = False
 
     def scan_callback(self, data):
         """
@@ -149,15 +152,15 @@ class Boid:
             (float) Polar vector (rho, phi)
         """
         self.vel_cart = [0, 0]
-        output = self.alignment()
-        self.vel_cart[0] += output[0]
-        self.vel_cart[1] += output[1]
+        # output = self.alignment(self.boid_vel)
+        # self.vel_cart[0] += output[0]
+        # self.vel_cart[1] += output[1]
         # output = self.cohesion()
         # self.vel_cart[0] += output[0]
         # self.vel_cart[1] += output[1]
-        # output = self.separation()
-        # self.vel_cart[0] += output[0]
-        # self.vel_cart[1] += output[1]
+        output = self.separation()
+        self.vel_cart[0] += output[0]
+        self.vel_cart[1] += output[1]
 
         # rospy.loginfo('Final C.V.: [' + str(np.round(self.vel_cart[0], 5)) + ', ' + str(np.round(self.vel_cart[1], 5)) + ']')
 
@@ -187,7 +190,7 @@ class Boid:
 
         
 
-        rospy.loginfo('FINAL: ' + str(vector))
+        # rospy.loginfo('FINAL: ' + str(vector))
 
         msg = Twist()
         msg.linear.x = vector[0] * VELOCITY_MULTIPLIER
@@ -223,7 +226,7 @@ class Boid:
         Planned to be changed.
         """
         self.boid_pos[0] = [0.4, 0]           # Forward
-        # self.boid_pos_prev = self.boid_pos
+        self.boid_pos_prev = self.boid_pos
         self.isUpdating = False
 
     def init_boid_detection(self):
