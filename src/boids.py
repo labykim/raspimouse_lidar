@@ -8,13 +8,13 @@ import coord
 
 BOID_NUM = 2                    # Total number of robots
 SEPARATION_RANGE = 0.4
-NEIGHBOUR_RADIUS = 0.65
+NEIGHBOUR_RADIUS = 0.7
 
-ALIGNMENT_WEIGHT = 1.0
+ALIGNMENT_WEIGHT = 0.1
 COHESION_WEIGHT = 1.0
-SEPARATION_WEIGHT = 1.0
+SEPARATION_WEIGHT = 1.4
 
-VELOCITY_MULTIPLIER = 1.0
+VELOCITY_COEFFICIENT = 0.25
 
 class Boid:
     """
@@ -27,8 +27,10 @@ class Boid:
         """ [rho, phi(deg)] """
         self.boid_vel = [[0, 0] for _ in range(BOID_NUM - 1)]
         """ [x, y] """
-        self.boid_pos_prev = self.boid_pos
-        self.boid_vel_prev = self.boid_vel
+        self.boid_pos_prev = [[] for _ in range(BOID_NUM - 1)]
+        self.boid_vel_prev = [[0, 0] for _ in range(BOID_NUM - 1)]
+
+        self.test_condition_init()
 
         rospy.Subscriber('/raspi_' + str(index) + '/scan', LaserScan, self.scan_callback)
         self.vel_pub = rospy.Publisher('/raspi_' + str(index) + '/cmd_vel', Twist, queue_size=1)
@@ -48,15 +50,18 @@ class Boid:
         self.data = data.ranges
         self.tracking()
         self.boid_vel_update()
+        self.update()
 
     def tracking(self):
         """
         Process LaserScan data to calculate the position of nearby boids.
         """
-        self.boid_pos_prev = self.boid_pos
+        # self.boid_pos_prev = self.boid_pos
         wide = 20
 
         for i in range(len(self.boid_pos_prev)):
+            self.boid_pos_prev[i] = self.boid_pos[i]
+
             min_distance = 9
             hit_angle = 0
             prev_angle = int(self.boid_pos_prev[i][1])
@@ -92,7 +97,7 @@ class Boid:
         vector[0] = vector[0] / len(vel)
         vector[1] = vector[1] / len(vel)
 
-        rospy.loginfo('Alignment : ' + str(vector))
+        # rospy.loginfo('Alignment : ' + str(vector))
         return vector
 
     def cohesion(self, pos: list) -> list:
@@ -105,22 +110,22 @@ class Boid:
         Returns
             A cartesian vector `[x, y]`
         """
-        vector = [0, 0]
+        fcv = [0, 0]                        # Final Cartesian Vector
         
         count = 1
-        for i in range(pos):
+        for i in range(len(pos)):
             if pos[i][0] < NEIGHBOUR_RADIUS:
                 count += 1
                 tmp_vec = coord.pol_to_cart(pos[i])
-                vector[0] += tmp_vec[0]
-                vector[1] += tmp_vec[1]
+                fcv[0] = fcv[0] + tmp_vec[0]
+                fcv[1] = fcv[1] + tmp_vec[1]
         
         if count != 1:
-            vector[0] /= count
-            vector[1] /= count
+            fcv[0] /= count
+            fcv[1] /= count
 
-        rospy.loginfo('Cohesion  : ' + str(np.round(vector, 4)))
-        return vector
+        # rospy.loginfo('Cohesion  : ' + str(np.round(fcv, 4)))
+        return fcv
 
     def separation(self, pos: list) -> list:
         """
@@ -141,8 +146,8 @@ class Boid:
                 fcv[0] = fcv[0] + v[0]
                 fcv[1] = fcv[1] + v[1]
         
-        if isExist:
-            rospy.loginfo('Separation: ' + str(coord.cart_to_pol(fcv)))
+        # if isExist:
+            # rospy.loginfo('Separation: ' + str(coord.cart_to_pol(fcv)))
         
         return fcv
 
@@ -175,7 +180,7 @@ class Boid:
         """
         Write and publish a Twist topic with some post-processing:
         - Decide whether move forward or backward
-        - Use `VELOCITY_MULTIPLIER`
+        - Multiply `VELOCITY_COEFFICIENT`
 
         ### Parameters
             `pv` Polar vector [rho, phi_d] that represents velocity for next interval
@@ -185,13 +190,18 @@ class Boid:
             pv[1] -= 180
         elif pv[1] >= 270 and pv[1] < 360:
             pv[1] -= 360
+        elif pv[1] < (-90) and pv[1] > -270:
+            pv[0] = -pv[0]
+            pv[1] += 180
 
+        # rospy.loginfo('Final angle: ' + str(pv[1]))
         pv[1] = np.radians(pv[1])
 
-        rospy.loginfo('Publishing: ' + str(pv))
+        # rospy.loginfo('Publishing: ' + str(pv))
+        # print()
 
         msg = Twist()
-        msg.linear.x = pv[0] * VELOCITY_MULTIPLIER
+        msg.linear.x = pv[0] * VELOCITY_COEFFICIENT
         msg.angular.z = pv[1]
 
         self.vel_pub.publish(msg)
@@ -205,10 +215,10 @@ class Boid:
         self.isUpdating = True              # To block changes in boid_pos during calculation
 
         # Calculate the velocity of other boids
-        self.boid_vel_update()
+        # self.boid_vel_update()
 
-        rospy.loginfo(str(self.boid_pos))
-        rospy.loginfo(str(self.boid_vel))
+        # rospy.loginfo(str(self.boid_pos))
+        # rospy.loginfo(str(self.boid_vel))
 
         vector = self.vector_calculation()
 
@@ -221,9 +231,17 @@ class Boid:
         Allocate intial positions of nearby boids.
         Planned to be changed.
         """
-        self.boid_pos[0] = [0.4, 0]           # Forward
-        # self.boid_pos_prev = self.boid_pos
-        self.isUpdating = False
+        # Put robots on triangle shape
+        self.boid_pos[0] = [0.4, 60]           # Forward
+        # self.boid_pos[1] = [0.4, 60]            # 60 deg left
+
+    def init_pos_detection(self):
+        """
+        Locate `BOID_NUM` of the closet object and save them as nearby boids (i.e., store in `boid_pos`)
+        """
+        for i in range(len(self.data)):
+            pass
+
 
 
 
@@ -235,8 +253,8 @@ def main():
 
     r = rospy.Rate(5)
     while not rospy.is_shutdown():
-        for i in range(BOID_NUM):
-            boids[i].update()
+        # for i in range(BOID_NUM):
+        #     boids[i].update()
         r.sleep()
 
 if __name__ == '__main__':
